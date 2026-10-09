@@ -105,12 +105,12 @@
 
                             <!-- Upload New PDF Accordion / Button -->
                             <div class="upload-section">
-                                <label for="pdfUploadInput" class="upload-dropzone" id="dropzoneLabel">
+                                <div class="upload-dropzone" id="dropzoneLabel" role="button" tabindex="0">
                                     <i class="fa-solid fa-cloud-arrow-up"></i>
                                     <span>Upload & Ingest New PDF</span>
-                                    <small>Chunks and adds to ChromaDB</small>
-                                    <input type="file" id="pdfUploadInput" accept=".pdf" style="display:none;">
-                                </label>
+                                    <small>Click to browse or drag & drop PDF</small>
+                                </div>
+                                <input type="file" id="pdfUploadInput" accept=".pdf" style="display:none;">
                                 <div id="uploadProgress" class="upload-progress-bar hidden">
                                     <div class="spinner"></div>
                                     <span id="uploadStatusText">Ingesting PDF into ChromaDB...</span>

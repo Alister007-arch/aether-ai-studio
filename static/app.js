@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const pdfUploadInput = document.getElementById('pdfUploadInput');
     const uploadProgress = document.getElementById('uploadProgress');
     const uploadStatusText = document.getElementById('uploadStatusText');
+    const dropzoneLabel = document.getElementById('dropzoneLabel');
 
     // Tab 2 Elements: Direct Gemini
     const directMessages = document.getElementById('directMessages');
@@ -609,13 +610,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Upload New PDF
-    pdfUploadInput.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
+    // Upload New PDF with Drag-and-Drop & File Picker
+    async function handleFileUpload(file) {
         if (!file) return;
+        if (!file.name.toLowerCase().endsWith('.pdf')) {
+            showToast('⚠️ Only PDF (.pdf) files are supported.');
+            return;
+        }
 
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
         uploadProgress.classList.remove('hidden');
-        uploadStatusText.textContent = `Uploading & chunking "${file.name}"...`;
+        uploadStatusText.textContent = `Uploading & analyzing "${file.name}" (${sizeMB} MB)...`;
 
         const formData = new FormData();
         formData.append('file', file);
@@ -626,24 +631,79 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: formData
             });
 
+            const data = await res.json();
             if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.detail || 'Upload failed');
+                throw new Error(data.detail || 'Upload failed');
             }
 
-            const data = await res.json();
-            showToast(`Indexed ${data.chunks_created} chunks into ChromaDB!`);
-            document.getElementById('activeDocName').textContent = file.name;
-            checkSystemStatus();
-            if (state.chunksLoaded) loadChunks();
+            showToast(`✅ Successfully indexed ${data.chunks_created} chunks from "${file.name}"!`, 5000);
+            
+            const activeDocName = document.getElementById('activeDocName');
+            if (activeDocName) activeDocName.textContent = file.name;
+
+            const ribbonDocName = document.getElementById('ribbonDocName');
+            if (ribbonDocName) ribbonDocName.textContent = file.name;
+
+            await checkSystemStatus();
+            if (state.chunksLoaded && typeof loadChunks === 'function') {
+                loadChunks();
+            }
         } catch (err) {
             console.error('Upload Error:', err);
-            showToast(`Upload failed: ${err.message}`);
+            showToast(`⚠️ Upload error: ${err.message}`, 6000);
         } finally {
             uploadProgress.classList.add('hidden');
-            pdfUploadInput.value = '';
+            if (pdfUploadInput) pdfUploadInput.value = '';
         }
-    });
+    }
+
+    if (pdfUploadInput) {
+        pdfUploadInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                handleFileUpload(e.target.files[0]);
+            }
+        });
+    }
+
+    if (dropzoneLabel) {
+        // Trigger file picker on click
+        dropzoneLabel.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (pdfUploadInput) pdfUploadInput.click();
+        });
+
+        // Keyboard accessible (Enter or Space)
+        dropzoneLabel.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                if (pdfUploadInput) pdfUploadInput.click();
+            }
+        });
+
+        // Drag and drop events
+        ['dragenter', 'dragover'].forEach(evt => {
+            dropzoneLabel.addEventListener(evt, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzoneLabel.classList.add('drag-over');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(evt => {
+            dropzoneLabel.addEventListener(evt, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzoneLabel.classList.remove('drag-over');
+            });
+        });
+
+        dropzoneLabel.addEventListener('drop', (e) => {
+            const files = e.dataTransfer ? e.dataTransfer.files : null;
+            if (files && files.length > 0) {
+                handleFileUpload(files[0]);
+            }
+        });
+    }
 
     // ==========================================
     // 4. Tab 2: Gemini Direct Chat

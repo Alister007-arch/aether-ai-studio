@@ -347,13 +347,14 @@ def calculate_similarity(req: SimilarityRequest):
 
 @app.get("/api/chunks/sample")
 def get_chunks_sample(query: Optional[str] = None, limit: int = 6):
-    if not API_KEY or not os.path.exists(CHROMA_DIR):
+    api_key = get_api_key()
+    if not api_key or not os.path.exists(CHROMA_DIR):
         return {"chunks": [], "total": 0}
 
     try:
         emb_model = GoogleGenerativeAIEmbeddings(
             model="gemini-embedding-001",
-            google_api_key=API_KEY
+            google_api_key=api_key
         )
         vector_db = Chroma(
             persist_directory=CHROMA_DIR,
@@ -388,10 +389,14 @@ def get_chunks_sample(query: Optional[str] = None, limit: int = 6):
 
 @app.post("/api/rag/upload")
 async def upload_pdf_document(file: UploadFile = File(...)):
-    if not API_KEY:
-        raise HTTPException(status_code=400, detail="GOOGLE_API_KEY is not configured.")
+    api_key = get_api_key()
+    if not api_key:
+        raise HTTPException(
+            status_code=400,
+            detail="GOOGLE_API_KEY is not configured in environment or Space secrets."
+        )
     if not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are supported.")
+        raise HTTPException(status_code=400, detail="Only PDF files (.pdf) are supported.")
 
     file_path = os.path.join(DOCS_DIR, file.filename)
     try:
@@ -399,9 +404,29 @@ async def upload_pdf_document(file: UploadFile = File(...)):
         with open(file_path, "wb") as f:
             f.write(content)
 
-        # Ingest as in RAG/chroma.py
-        loader = PyPDFLoader(file_path)
-        docs = loader.load()
+        # Ingest with PyPDFLoader, fallback to pypdf if needed
+        docs = []
+        try:
+            loader = PyPDFLoader(file_path)
+            docs = loader.load()
+        except Exception as loader_err:
+            print("PyPDFLoader failed, falling back to pypdf direct extraction:", loader_err)
+            import pypdf
+            from langchain_core.documents import Document
+            reader = pypdf.PdfReader(file_path)
+            for page_idx, page in enumerate(reader.pages):
+                page_text = page.extract_text() or ""
+                if page_text.strip():
+                    docs.append(Document(
+                        page_content=page_text,
+                        metadata={"source": file.filename, "page": page_idx + 1}
+                    ))
+
+        if not docs or not any(d.page_content.strip() for d in docs):
+            raise HTTPException(
+                status_code=400,
+                detail="No readable text found in this PDF. It may be scanned or empty."
+            )
 
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
@@ -411,7 +436,7 @@ async def upload_pdf_document(file: UploadFile = File(...)):
 
         emb_model = GoogleGenerativeAIEmbeddings(
             model="gemini-embedding-001",
-            google_api_key=API_KEY
+            google_api_key=api_key
         )
 
         vector_db = Chroma.from_documents(
@@ -429,6 +454,8 @@ async def upload_pdf_document(file: UploadFile = File(...)):
             "chunks_created": len(chunks),
             "total_chunks_in_db": total_chunks
         }
+    except HTTPException:
+        raise
     except Exception as e:
         print("Upload error:", e)
         raise HTTPException(status_code=500, detail=str(e))
