@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aether AI — Intelligent RAG & Gemini Studio</title>
+    <meta name="description" content="Aether AI — Modern intelligent workspace featuring Retrieval-Augmented Generation (RAG) with ChromaDB, Gemini 3.7 Flash Chat, and Vector Embeddings explorer.">
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Marked.js for markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="/static/style.css?v=8">
+</head>
+<body class="dark-theme" data-theme="gold">
+    <!-- Ambient glowing backgrounds -->
+    <div class="ambient-glow glow-1"></div>
+    <div class="ambient-glow glow-2"></div>
+
+    <div class="app-layout">
+        <!-- Top Navigation Bar -->
+        <header class="app-header">
+            <div class="brand-section">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-atom"></i>
+                </div>
+                <div class="brand-info">
+                    <h1 class="brand-title">Aether <span>AI</span></h1>
+                    <p class="brand-subtitle">Gemini 3.7 Flash &bull; LangChain &bull; ChromaDB</p>
+                </div>
+            </div>
+
+            <!-- Global Status Bar -->
+            <div class="header-status">
+                <div class="status-chip" id="systemStatusChip">
+                    <span class="status-dot online"></span>
+                    <span class="status-label" id="statusLabel">Connecting...</span>
+                </div>
+                <div class="db-chip" id="dbStatsChip" title="Chunks in ChromaDB">
+                    <i class="fa-solid fa-database"></i>
+                    <span id="headerChunkCount">222 Chunks</span>
+                </div>
+            </div>
+
+            <!-- Tab Navigation Buttons -->
+            <nav class="nav-tabs">
+                <button class="nav-tab active" data-tab="ragTab" id="tabBtnRag">
+                    <i class="fa-solid fa-book-bookmark"></i>
+                    <span>RAG Assistant</span>
+                </button>
+                <button class="nav-tab" data-tab="directTab" id="tabBtnDirect">
+                    <i class="fa-solid fa-comments"></i>
+                    <span>Gemini Direct</span>
+                </button>
+                <button class="nav-tab" data-tab="vectorTab" id="tabBtnVector">
+                    <i class="fa-solid fa-wave-square"></i>
+                    <span>Vector Lab</span>
+                </button>
+                <button class="nav-tab" data-tab="chunksTab" id="tabBtnChunks">
+                    <i class="fa-solid fa-cubes-stacked"></i>
+                    <span>Knowledge Base</span>
+                </button>
+            </nav>
+
+            <!-- Header Action: Profile & Settings -->
+            <div class="header-actions">
+                <button type="button" class="profile-header-btn" id="openProfileBtn" title="Profile & Studio Settings">
+                    <span class="profile-avatar-circle" id="headerAvatarCircle">
+                        <i class="fa-solid fa-user-astronaut"></i>
+                    </span>
+                    <div class="profile-btn-info">
+                        <span class="profile-btn-name" id="headerUserName">Profile</span>
+                        <span class="profile-btn-sub">Settings & Themes <i class="fa-solid fa-chevron-down"></i></span>
+                    </div>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="main-viewport">
+
+            <!-- ================= TAB 1: RAG ASSISTANT ================= -->
+            <section class="tab-pane active" id="ragTab">
+                <div class="workspace-grid">
+                    <!-- Left Sidebar: Document & Settings -->
+                    <aside class="sidebar-panel">
+                        <div class="panel-card doc-card">
+                            <div class="panel-card-header">
+                                <h3><i class="fa-solid fa-file-pdf"></i> Active Document</h3>
+                                <span class="badge primary-badge">Loaded</span>
+                            </div>
+                            <div class="doc-info-box">
+                                <div class="doc-avatar">
+                                    <i class="fa-solid fa-file-lines"></i>
+                                </div>
+                                <div class="doc-details">
+                                    <strong id="activeDocName">GRU.pdf</strong>
+                                    <span>Gated Recurrent Unit Paper</span>
+                                    <small id="docPagesInfo">Stored in ChromaDB &bull; 222 Chunks</small>
+                                </div>
+                            </div>
+
+                            <!-- Upload New PDF Accordion / Button -->
+                            <div class="upload-section">
+                                <label for="pdfUploadInput" class="upload-dropzone" id="dropzoneLabel">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                                    <span>Upload & Ingest New PDF</span>
+                                    <small>Chunks and adds to ChromaDB</small>
+                                    <input type="file" id="pdfUploadInput" accept=".pdf" style="display:none;">
+                                </label>
+                                <div id="uploadProgress" class="upload-progress-bar hidden">
+                                    <div class="spinner"></div>
+                                    <span id="uploadStatusText">Ingesting PDF into ChromaDB...</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Retrieval Settings -->
+                        <div class="panel-card">
+                            <div class="panel-card-header">
+                                <h3><i class="fa-solid fa-sliders"></i> Retrieval Config</h3>
+                            </div>
+                            <div class="form-group">
+                                <label for="searchTypeSelect">Algorithm:</label>
+                                <select id="searchTypeSelect" class="styled-select">
+                                    <option value="mmr" selected>Max Marginal Relevance (MMR)</option>
+                                    <option value="similarity">Standard Similarity Search</option>
+                                </select>
+                                <small class="form-tip">MMR balances relevance and diversity among chunks.</small>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group half">
+                                    <label for="ragKInput">Top Chunks (k):</label>
+                                    <input type="number" id="ragKInput" min="1" max="10" value="4" class="styled-input">
+                                </div>
+                                <div class="form-group half">
+                                    <label for="ragFetchKInput">Candidate Pool:</label>
+                                    <input type="number" id="ragFetchKInput" min="5" max="25" value="10" class="styled-input">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Prompts Suggestions -->
+                        <div class="panel-card suggestions-card">
+                            <div class="panel-card-header">
+                                <h3><i class="fa-regular fa-lightbulb"></i> Suggested Prompts</h3>
+                            </div>
+                            <div class="quick-prompts-list">
+                                <button class="prompt-chip" data-query="What is a Gated Recurrent Unit (GRU) and how does it work?">
+                                    <i class="fa-solid fa-arrow-turn-down"></i> Explain GRU architecture
+                                </button>
+                                <button class="prompt-chip" data-query="How does GRU compare to LSTM according to the PDF?">
+                                    <i class="fa-solid fa-arrow-turn-down"></i> GRU vs LSTM comparison
+                                </button>
+                                <button class="prompt-chip" data-query="What are the update gate and reset gate equations described?">
+                                    <i class="fa-solid fa-arrow-turn-down"></i> Reset and update gating logic
+                                </button>
+                                <button class="prompt-chip" data-query="What empirical results or datasets were used in the evaluation?">
+                                    <i class="fa-solid fa-arrow-turn-down"></i> Datasets & evaluation results
+                                </button>
+                            </div>
+                        </div>
+                    </aside>
+
+                    <!-- Right Chat Area -->
+                    <section class="chat-viewport">
+                        <div class="chat-header-bar">
+                            <div class="chat-status-indicator">
+                                <span class="badge success-badge"><i class="fa-solid fa-shield-halved"></i> Grounded in PDF</span>
+                                <span class="badge info-badge" id="chatEngineBadge">Gemini 3.7 Flash</span>
+                            </div>
+                            <button class="icon-btn" id="clearRagChatBtn" title="Clear Chat History">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+
+                        <!-- Chat Messages Container -->
+                        <div class="messages-container" id="ragMessages">
+                            <div class="welcome-banner">
+                                <div class="welcome-icon">
+                                    <i class="fa-solid fa-file-contract"></i>
+                                </div>
+                                <h2>PDF Knowledge Assistant</h2>
+                                <p>Ask any question about <strong>GRU.pdf</strong> or uploaded documents. Responses are strictly grounded using ChromaDB MMR retrieval and Gemini 3.7 Flash.</p>
+                                <div class="welcome-badges">
+                                    <span><i class="fa-solid fa-circle-check"></i> Zero Hallucination Guard</span>
+                                    <span><i class="fa-solid fa-layer-group"></i> 222 Active Chunks</span>
+                                    <span><i class="fa-solid fa-magnifying-glass"></i> Context Citations</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Typing / Search Indicator -->
+                        <div class="retrieval-indicator hidden" id="ragRetrievalIndicator">
+                            <div class="pulse-ring"></div>
+                            <div class="indicator-text">
+                                <strong id="indicatorStep">Searching ChromaDB...</strong>
+                                <span>Retrieving most relevant chunks with MMR</span>
+                            </div>
+                        </div>
+
+                        <!-- Input Controls -->
+                        <div class="chat-input-bar">
+                            <div class="input-wrapper">
+                                <textarea id="ragInput" placeholder="Ask a question about the document... (Press Enter to send, Shift+Enter for newline)" rows="1"></textarea>
+                                <button class="send-btn" id="ragSendBtn" title="Send Question">
+                                    <i class="fa-solid fa-paper-plane"></i>
+                                </button>
+                            </div>
+                            <div class="input-footer">
+                                <small><i class="fa-solid fa-info-circle"></i> Answers are generated strictly from retrieved ChromaDB context chunks.</small>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </section>
+
+
+            <!-- ================= TAB 2: GEMINI DIRECT CHAT ================= -->
+            <section class="tab-pane" id="directTab">
+                <div class="workspace-grid">
+                    <!-- Left Sidebar: Direct Chat Settings -->
+                    <aside class="sidebar-panel">
+                        <div class="panel-card">
+                            <div class="panel-card-header">
+                                <h3><i class="fa-solid fa-sliders"></i> Model Controls</h3>
+                            </div>
+                            <div class="form-group">
+                                <label for="directModelSelect">Model:</label>
+                                <select id="directModelSelect" class="styled-select">
+                                    <option value="gemini-3.7-flash" selected>gemini-3.7-flash (Default)</option>
+                                    <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+                                    <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <div class="slider-header">
+                                    <label for="temperatureSlider">Creativity / Temperature:</label>
+                                    <span id="tempValueDisplay" class="value-badge">0.7</span>
+                                </div>
+                                <input type="range" id="temperatureSlider" min="0" max="1" step="0.05" value="0.7" class="styled-slider">
+                                <div class="slider-labels">
+                                    <small>Precise (0.0)</small>
+                                    <small>Balanced (0.7)</small>
+                                    <small>Creative (1.0)</small>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="systemInstructionInput">System Instruction (Optional):</label>
+                                <textarea id="systemInstructionInput" rows="3" class="styled-textarea" placeholder="e.g. You are an expert Machine Learning researcher..."></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Direct Starter Prompts -->
+                        <div class="panel-card">
+                            <div class="panel-card-header">
+                                <h3><i class="fa-regular fa-lightbulb"></i> Starter Prompts</h3>
+                            </div>
+                            <div class="quick-prompts-list">
+                                <button class="prompt-chip direct-chip" data-query="what is ai and explain machine learning">
+                                    <i class="fa-solid fa-bolt"></i> what is ai and explain machine learning (from main.py)
+                                </button>
+                                <button class="prompt-chip direct-chip" data-query="Write Python code demonstrating how to build a neural network with PyTorch">
+                                    <i class="fa-solid fa-code"></i> PyTorch Neural Network demo
+                                </button>
+                                <button class="prompt-chip direct-chip" data-query="Compare Transformers, RNNs, and CNNs with key pros and cons table">
+                                    <i class="fa-solid fa-table"></i> Architecture Comparison Table
+                                </button>
+                            </div>
+                        </div>
+                    </aside>
+
+                    <!-- Right Chat Area -->
+                    <section class="chat-viewport">
+                        <div class="chat-header-bar">
+                            <div class="chat-status-indicator">
+                                <span class="badge primary-badge"><i class="fa-solid fa-wand-magic-sparkles"></i> Unrestricted Gemini</span>
+                                <span class="badge info-badge" id="directEngineBadge">gemini-3.7-flash</span>
+                            </div>
+                            <button class="icon-btn" id="clearDirectChatBtn" title="Clear Chat History">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+
+                        <div class="messages-container" id="directMessages">
+                            <div class="welcome-banner">
+                                <div class="welcome-icon direct-gradient">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                                </div>
+                                <h2>Gemini Direct Chat</h2>
+                                <p>Interact directly with Google's state-of-the-art Gemini models without document constraints, mirroring <code>main.py</code>.</p>
+                            </div>
+                        </div>
+
+                        <div class="chat-input-bar">
+                            <div class="input-wrapper">
+                                <textarea id="directInput" placeholder="Message Gemini... (Press Enter to send, Shift+Enter for newline)" rows="1"></textarea>
+                                <button class="send-btn" id="directSendBtn" title="Send Message">
+                                    <i class="fa-solid fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </section>
+
+
+            <!-- ================= TAB 3: VECTOR & EMBEDDINGS LAB ================= -->
+            <section class="tab-pane" id="vectorTab">
+                <div class="vector-lab-container">
+                    <div class="lab-header">
+                        <h2><i class="fa-solid fa-wave-square"></i> Vector & Embeddings Playground</h2>
+                        <p>Explore high-dimensional vector representations and compute cosine semantic similarity powered by <code>GoogleGenerativeAIEmbeddings</code> (matching <code>2main.py</code> & <code>embedding.py</code>).</p>
+                    </div>
+
+                    <div class="lab-grid">
+                        <!-- Module 1: Embed Query Generator -->
+                        <div class="lab-card">
+                            <div class="card-head">
+                                <h3><i class="fa-solid fa-cube"></i> Embed Query Generator</h3>
+                                <span class="badge info-badge">From 2main.py</span>
+                            </div>
+                            <p class="card-desc">Generate floating-point embedding vectors for any sentence or document.</p>
+                            
+                            <div class="form-group">
+                                <label for="embedInputText">Input Text:</label>
+                                <textarea id="embedInputText" class="styled-textarea" rows="3">hello, world!</textarea>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group half">
+                                    <label for="embedModelSelect">Embedding Model:</label>
+                                    <select id="embedModelSelect" class="styled-select">
+                                        <option value="gemini-embedding-001" selected>gemini-embedding-001</option>
+                                        <option value="gemini-embedding-2-preview">gemini-embedding-2-preview</option>
+                                    </select>
+                                </div>
+                                <div class="form-group half flex-end">
+                                    <button class="btn btn-primary" id="generateEmbedBtn">
+                                        <i class="fa-solid fa-play"></i> Generate Embedding
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Embedding Result Box -->
+                            <div id="embedResultArea" class="result-box hidden">
+                                <div class="result-stats-row">
+                                    <div class="stat-item">
+                                        <span class="stat-label">Vector Dimension:</span>
+                                        <strong id="vectorDimValue" class="stat-val highlight">768</strong>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Status:</span>
+                                        <span class="badge success-badge">Generated</span>
+                                    </div>
+                                </div>
+
+                                <div class="vector-preview-box">
+                                    <div class="preview-header">
+                                        <span>First 10 Dimensions <code>vector[0:10]</code>:</span>
+                                        <button class="copy-small-btn" id="copyVectorBtn" title="Copy Vector">
+                                            <i class="fa-regular fa-copy"></i>
+                                        </button>
+                                    </div>
+                                    <pre class="code-preview" id="vectorValuesPreview">[-0.0142, 0.0521, -0.0093, ...]</pre>
+                                </div>
+
+                                <div class="spectrum-container">
+                                    <span class="spectrum-label">Vector Dimension Distribution Preview:</span>
+                                    <div class="spectrum-bars" id="spectrumBars"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Module 2: Cosine Similarity Matcher -->
+                        <div class="lab-card">
+                            <div class="card-head">
+                                <h3><i class="fa-solid fa-scale-balanced"></i> Semantic Similarity Matcher</h3>
+                                <span class="badge success-badge">Cosine Similarity</span>
+                            </div>
+                            <p class="card-desc">Compare the semantic similarity score between two texts in high-dimensional vector space.</p>
+
+                            <div class="form-group">
+                                <label for="simText1">Sentence A:</label>
+                                <textarea id="simText1" class="styled-textarea" rows="2">Gated Recurrent Units help solve vanishing gradient problems in deep neural networks.</textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="simText2">Sentence B:</label>
+                                <textarea id="simText2" class="styled-textarea" rows="2">GRU models use reset and update gates to maintain long-term sequence dependencies.</textarea>
+                            </div>
+
+                            <div class="presets-row">
+                                <small>Presets:</small>
+                                <button class="preset-btn" id="presetSimHigh">High Match (Deep Learning)</button>
+                                <button class="preset-btn" id="presetSimLow">Dissimilar (Weather vs AI)</button>
+                            </div>
+
+                            <div class="action-row">
+                                <button class="btn btn-accent" id="calcSimilarityBtn">
+                                    <i class="fa-solid fa-calculator"></i> Calculate Semantic Distance
+                                </button>
+                            </div>
+
+                            <!-- Similarity Result Meter -->
+                            <div id="similarityResultArea" class="result-box hidden">
+                                <div class="score-display-card">
+                                    <div class="score-circle">
+                                        <span id="scorePercentage">0%</span>
+                                    </div>
+                                    <div class="score-meta">
+                                        <h4 id="scoreInterpretation">Analyzing...</h4>
+                                        <p>Cosine Score: <code id="rawCosineScore">0.0000</code></p>
+                                    </div>
+                                </div>
+                                <div class="progress-track">
+                                    <div class="progress-fill" id="similarityProgressBar" style="width: 0%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- ================= TAB 4: KNOWLEDGE BASE & CHUNKS ================= -->
+            <section class="tab-pane" id="chunksTab">
+                <div class="chunks-viewport">
+                    <div class="chunks-header-box">
+                        <div class="header-text">
+                            <h2><i class="fa-solid fa-cubes-stacked"></i> ChromaDB Chunks Explorer</h2>
+                            <p>Inspect the document chunk splits stored in ChromaDB, as demonstrated in <code>chunks.py</code> & <code>main3.py</code>.</p>
+                        </div>
+
+                        <div class="chunks-filter-bar">
+                            <div class="search-input-wrap">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input type="text" id="chunksSearchInput" placeholder="Search vector store for concepts (e.g. 'update gate', 'LSTM')...">
+                            </div>
+                            <button class="btn btn-secondary" id="searchChunksBtn">
+                                <i class="fa-solid fa-search"></i> Search
+                            </button>
+                            <button class="btn btn-outline" id="resetChunksBtn">
+                                <i class="fa-solid fa-rotate-left"></i> Reset
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Statistics ribbon -->
+                    <div class="stats-ribbon">
+                        <div class="ribbon-card">
+                            <i class="fa-solid fa-database"></i>
+                            <div>
+                                <span class="ribbon-title">Total Chunks</span>
+                                <strong id="ribbonTotalChunks">222</strong>
+                            </div>
+                        </div>
+                        <div class="ribbon-card">
+                            <i class="fa-solid fa-scissors"></i>
+                            <div>
+                                <span class="ribbon-title">Chunk Size</span>
+                                <strong>1000 characters</strong>
+                            </div>
+                        </div>
+                        <div class="ribbon-card">
+                            <i class="fa-solid fa-arrows-split-up-and-left"></i>
+                            <div>
+                                <span class="ribbon-title">Chunk Overlap</span>
+                                <strong>200 characters</strong>
+                            </div>
+                        </div>
+                        <div class="ribbon-card">
+                            <i class="fa-solid fa-file"></i>
+                            <div>
+                                <span class="ribbon-title">Base Document</span>
+                                <strong id="ribbonDocName">GRU.pdf</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chunks Grid -->
+                    <div class="chunks-grid" id="chunksGrid">
+                        <div class="loading-state">
+                            <div class="spinner"></div>
+                            <p>Loading document chunks from ChromaDB...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- ================= SETTINGS & AUTH MODAL ================= -->
+    <dialog class="settings-modal" id="settingsModal">
+        <div class="settings-dialog-container">
+            <!-- Modal Header -->
+            <div class="settings-dialog-header">
+                <div class="settings-header-title">
+                    <div class="settings-icon-badge">
+                        <i class="fa-solid fa-user-gear"></i>
+                    </div>
+                    <div>
+                        <h2>Profile & Studio Settings</h2>
+                        <p>User profile, superhero themes & system security</p>
+                    </div>
+                </div>
+                <button type="button" class="close-modal-btn" id="closeSettingsBtn" title="Close Settings">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body (Two-Column Layout) -->
+            <div class="settings-dialog-body">
+                <!-- Sidebar Nav inside Modal -->
+                <aside class="settings-nav">
+                    <button type="button" class="settings-nav-btn active" data-settings-tab="authSettingsTab">
+                        <i class="fa-solid fa-user-astronaut"></i>
+                        <span>Profile & Account</span>
+                    </button>
+                    <button type="button" class="settings-nav-btn" data-settings-tab="styleSettingsTab">
+                        <i class="fa-solid fa-palette"></i>
+                        <span>Themes & Style</span>
+                    </button>
+                    <button type="button" class="settings-nav-btn" data-settings-tab="securitySettingsTab">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <span>Security & API</span>
+                    </button>
+                </aside>
+
+                <!-- Settings Content Panes -->
+                <div class="settings-content-viewport">
+
+                    <!-- ===== SECTION 1: PROFILE & ACCOUNT (Active by default) ===== -->
+                    <div class="settings-pane active" id="authSettingsTab">
+                        <!-- If Logged In View -->
+                        <div id="loggedInView" class="auth-box hidden">
+                            <div class="user-active-profile">
+                                <div class="profile-avatar-large">
+                                    <i class="fa-solid fa-user-astronaut"></i>
+                                </div>
+                                <div class="profile-meta">
+                                    <h3 id="profileUsername">Sashu</h3>
+                                    <span id="profileEmail">user@aether.ai</span>
+                                    <span class="badge success-badge"><i class="fa-solid fa-circle-check"></i> Authenticated</span>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-secondary" id="logoutBtn">
+                                <i class="fa-solid fa-arrow-right-from-bracket"></i> Sign Out
+                            </button>
+                        </div>
+
+                        <!-- If Guest / Auth Form View -->
+                        <div id="authFormView" class="auth-box">
+                            <div class="auth-tabs-toggle">
+                                <button type="button" class="auth-tab-btn active" id="showLoginBtn">Sign In</button>
+                                <button type="button" class="auth-tab-btn" id="showSignupBtn">Create Account</button>
+                            </div>
+
+                            <form id="authForm" onsubmit="event.preventDefault(); window.handleAuthSubmit();">
+                                <div class="form-group" id="nameFieldGroup" style="display:none;">
+                                    <label for="authFullName">Full Name:</label>
+                                    <div class="input-icon-wrap">
+                                        <i class="fa-regular fa-user"></i>
+                                        <input type="text" id="authFullName" class="styled-input" placeholder="e.g. Sashu Kumar">
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="authEmail">Email or Username:</label>
+                                    <div class="input-icon-wrap">
+                                        <i class="fa-regular fa-envelope"></i>
+                                        <input type="text" id="authEmail" class="styled-input" placeholder="name@example.com" required>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="authPassword">Password:</label>
+                                    <div class="input-icon-wrap">
+                                        <i class="fa-solid fa-lock"></i>
+                                        <input type="password" id="authPassword" class="styled-input" placeholder="••••••••••••" required>
+                                        <button type="button" class="eye-toggle-btn" id="togglePasswordBtn">
+                                            <i class="fa-regular fa-eye"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="auth-extras" id="authExtras">
+                                    <label class="remember-check">
+                                        <input type="checkbox" id="rememberMeCheck" checked>
+                                        <span>Remember this device</span>
+                                    </label>
+                                    <a href="#" class="forgot-link" onclick="event.preventDefault(); showToast('Password reset link sent to demo email');">Forgot?</a>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary btn-block" id="authSubmitBtn">
+                                    <i class="fa-solid fa-arrow-right-to-bracket"></i> Sign In to Aether AI
+                                </button>
+                            </form>
+
+                            <div class="social-divider">
+                                <span>or continue with</span>
+                            </div>
+
+                            <div class="social-auth-row">
+                                <button type="button" class="social-btn" onclick="window.fastSocialLogin('Google')">
+                                    <i class="fa-brands fa-google"></i> Google
+                                </button>
+                                <button type="button" class="social-btn" onclick="window.fastSocialLogin('GitHub')">
+                                    <i class="fa-brands fa-github"></i> GitHub
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ===== SECTION 2: THEMES & STYLE ===== -->
+                    <div class="settings-pane" id="styleSettingsTab">
+                        <div class="settings-section">
+                            <h3><i class="fa-solid fa-brush"></i> Superhero & Studio Themes</h3>
+                            <p class="section-desc">Pick your favorite studio aesthetic. Changes reflect immediately across all surfaces.</p>
+                            
+                            <div class="theme-cards-grid">
+                                <div class="theme-card-option" data-theme="spiderman" onclick="selectTheme('spiderman')">
+                                    <div class="theme-card-preview" style="background: linear-gradient(135deg, #060812, #ef4444, #2563eb);"></div>
+                                    <div class="theme-card-label">
+                                        <strong>🕷️ Spider-Man</strong>
+                                        <span>Web Crimson & Blue</span>
+                                    </div>
+                                </div>
+                                <div class="theme-card-option" data-theme="batman" onclick="selectTheme('batman')">
+                                    <div class="theme-card-preview" style="background: linear-gradient(135deg, #020203, #18181b, #ca8a04);"></div>
+                                    <div class="theme-card-label">
+                                        <strong>🦇 Batman</strong>
+                                        <span>Deep Gotham Shadows</span>
+                                    </div>
+                                </div>
+                                <div class="theme-card-option" data-theme="ironman" onclick="selectTheme('ironman')">
+                                    <div class="theme-card-preview" style="background: linear-gradient(135deg, #090305, #e11d48, #06b6d4);"></div>
+                                    <div class="theme-card-label">
+                                        <strong>🤖 Iron Man</strong>
+                                        <span>Hot-Rod & Arc Reactor</span>
+                                    </div>
+                                </div>
+                                <div class="theme-card-option" data-theme="gold" onclick="selectTheme('gold')">
+                                    <div class="theme-card-preview" style="background: linear-gradient(135deg, #08080a, #f5d77f, #d4af37);"></div>
+                                    <div class="theme-card-label">
+                                        <strong>🟡 Luxury Gold</strong>
+                                        <span>24k Champagne Obsidian</span>
+                                    </div>
+                                </div>
+                                <div class="theme-card-option" data-theme="indigo" onclick="selectTheme('indigo')">
+                                    <div class="theme-card-preview" style="background: linear-gradient(135deg, #07080d, #6366f1, #818cf8);"></div>
+                                    <div class="theme-card-label">
+                                        <strong>🟣 Electric Indigo</strong>
+                                        <span>Linear / Cursor Dev Vibe</span>
+                                    </div>
+                                </div>
+                                <div class="theme-card-option" data-theme="cyan" onclick="selectTheme('cyan')">
+                                    <div class="theme-card-preview" style="background: linear-gradient(135deg, #05090f, #06b6d4, #38bdf8);"></div>
+                                    <div class="theme-card-label">
+                                        <strong>🔵 Cyber Cyan</strong>
+                                        <span>Quantum Neural Streams</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="settings-section">
+                            <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Visual Effects & Density</h3>
+                            <div class="toggle-option-row">
+                                <div>
+                                    <strong>Ambient Background Glows</strong>
+                                    <small>Soft glowing background orbs that pulse with theme colors</small>
+                                </div>
+                                <label class="switch-toggle">
+                                    <input type="checkbox" id="ambientGlowToggle" checked>
+                                    <span class="slider-toggle"></span>
+                                </div>
+                            </div>
+                            <div class="toggle-option-row">
+                                <div>
+                                    <strong>Compact Chat Bubbles</strong>
+                                    <small>Reduce message padding for high information density</small>
+                                </div>
+                                <label class="switch-toggle">
+                                    <input type="checkbox" id="compactChatToggle">
+                                    <span class="slider-toggle"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ===== SECTION 3: SECURITY & PRIVACY ===== -->
+                    <div class="settings-pane" id="securitySettingsTab">
+                        <div class="settings-section">
+                            <h3><i class="fa-solid fa-key"></i> Google Gemini API Security</h3>
+                            <p class="section-desc">Your API key is securely loaded on the backend from <code>.env</code>.</p>
+                            
+                            <div class="api-status-box">
+                                <div class="key-field">
+                                    <span class="key-label">Active Key:</span>
+                                    <code id="maskedKeyDisplay">AIzaSy••••••••••••••••••••••••••••••</code>
+                                    <span class="badge success-badge"><i class="fa-solid fa-shield-halved"></i> Encrypted</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="settings-section">
+                            <h3><i class="fa-solid fa-user-shield"></i> Session & Data Protection</h3>
+                            <div class="toggle-option-row">
+                                <div>
+                                    <strong>Zero Telemetry Guard</strong>
+                                    <small>Never send usage stats or prompt queries to external analytics</small>
+                                </div>
+                                <label class="switch-toggle">
+                                    <input type="checkbox" checked disabled>
+                                    <span class="slider-toggle"></span>
+                                </label>
+                            </div>
+
+                            <div class="toggle-option-row">
+                                <div>
+                                    <strong>Clear Local Cache & History</strong>
+                                    <small>Purge cached chat messages, preferences and theme cookies</small>
+                                </div>
+                                <button type="button" class="btn btn-outline" id="clearLocalDataBtn" style="padding: 6px 14px; font-size: 11px;">
+                                    <i class="fa-solid fa-trash-arrow-up"></i> Clear Data
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </dialog>
+
+    <script src="/static/app.js?v=8"></script>
+</body>
+</html>
