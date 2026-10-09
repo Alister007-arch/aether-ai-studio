@@ -620,23 +620,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
         uploadProgress.classList.remove('hidden');
-        uploadStatusText.textContent = `Uploading & analyzing "${file.name}" (${sizeMB} MB)...`;
+        uploadStatusText.textContent = `Analyzing & indexing "${file.name}" (${sizeMB} MB)...`;
 
         const formData = new FormData();
         formData.append('file', file);
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 65000); // 65s timeout
+
         try {
             const res = await fetch('/api/rag/upload', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
 
-            const data = await res.json();
-            if (!res.ok) {
-                throw new Error(data.detail || 'Upload failed');
+            let data = null;
+            const resText = await res.text();
+            try {
+                data = JSON.parse(resText);
+            } catch {
+                data = { detail: resText || `Server responded with status ${res.status}` };
             }
 
-            showToast(`✅ Successfully indexed ${data.chunks_created} chunks from "${file.name}"!`, 5000);
+            if (!res.ok) {
+                const msg = data && data.detail ? data.detail : `Upload error (${res.status})`;
+                throw new Error(msg);
+            }
+
+            const note = data.note ? data.note : '';
+            showToast(`✅ Indexed ${data.chunks_created} chunks from "${file.name}"${note}!`, 6000);
             
             const activeDocName = document.getElementById('activeDocName');
             if (activeDocName) activeDocName.textContent = file.name;
@@ -649,8 +663,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadChunks();
             }
         } catch (err) {
+            clearTimeout(timeoutId);
             console.error('Upload Error:', err);
-            showToast(`⚠️ Upload error: ${err.message}`, 6000);
+            if (err.name === 'AbortError') {
+                showToast('⚠️ Upload timed out. Please try a smaller PDF (under 10MB) for faster processing.', 7000);
+            } else {
+                showToast(`⚠️ ${err.message}`, 7000);
+            }
         } finally {
             uploadProgress.classList.add('hidden');
             if (pdfUploadInput) pdfUploadInput.value = '';

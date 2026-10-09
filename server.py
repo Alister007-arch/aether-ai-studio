@@ -425,14 +425,23 @@ async def upload_pdf_document(file: UploadFile = File(...)):
         if not docs or not any(d.page_content.strip() for d in docs):
             raise HTTPException(
                 status_code=400,
-                detail="No readable text found in this PDF. It may be scanned or empty."
+                detail="No readable digital text found in this PDF. It appears to be a scanned image or handwritten notes. Please upload a PDF with selectable digital text."
             )
+
+        capped_note = ""
+        if len(docs) > 30:
+            docs = docs[:30]
+            capped_note = " (first 30 pages indexed for cloud speed)"
 
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
             chunk_overlap=200
         )
         chunks = text_splitter.split_documents(docs)
+
+        # Cap chunks to max 120 to stay well within cloud request limits and Gemini RPM
+        if len(chunks) > 120:
+            chunks = chunks[:120]
 
         emb_model = GoogleGenerativeAIEmbeddings(
             model="gemini-embedding-001",
@@ -452,7 +461,8 @@ async def upload_pdf_document(file: UploadFile = File(...)):
             "filename": file.filename,
             "pages_loaded": len(docs),
             "chunks_created": len(chunks),
-            "total_chunks_in_db": total_chunks
+            "total_chunks_in_db": total_chunks,
+            "note": capped_note
         }
     except HTTPException:
         raise
